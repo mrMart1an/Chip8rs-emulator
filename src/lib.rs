@@ -180,8 +180,8 @@ impl<'a> ChipEmulator<'a> {
         let size = f.metadata()?.len() as usize;
 
         // Create memory slice and read the buffer in it
-        let memory_slice = &mut self.memory[START_ADDRESS..=START_ADDRESS + size];
-        f.read(memory_slice)?;
+        let memory_slice = &mut self.memory[START_ADDRESS..START_ADDRESS + size];
+        f.read_exact(memory_slice)?;
 
         // Set the program counter to the rom start address
         self.program_counter = START_ADDRESS as u16;
@@ -417,9 +417,9 @@ impl<'a> ChipEmulator<'a> {
                 if let Some(key) = self.key {
                     if self.registers[x as usize] != key {
                         self.program_counter += 2;
-                    } else {
-                        self.program_counter += 2;
                     }
+                } else {
+                    self.program_counter += 2;
                 }
             }
 
@@ -427,7 +427,7 @@ impl<'a> ChipEmulator<'a> {
             (0x0F, [x, 0x02, 0x09]) => {
                 let char = self.registers[x as usize] & 0x0F;
 
-                self.index_pointer = FONT_ADDRESS as u16 + char as u16;
+                self.index_pointer = FONT_ADDRESS as u16 + (char as u16) * 5;
             }
             // Store each digit of the decimal number stored in the VX register
             // in 3 byte of continuous memory starting from the index pointer
@@ -573,15 +573,12 @@ impl<'a> ChipEmulator<'a> {
         // Set VF register to 0
         self.registers[0x0F] = 0;
 
-        for row in 0..rows {
+        for (row, sprite_row) in sprite.iter().enumerate() {
             // Calculate y and check for overflow
             let y = sprite_y + row;
             if y >= 32 {
                 break;
             }
-
-            // Get the current row sprite byte
-            let sprite_row = sprite[row];
 
             // For every bit in one of the sprite byte update one pixel
             for bit_index in 0..8 {
