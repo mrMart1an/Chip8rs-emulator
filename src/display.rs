@@ -32,6 +32,7 @@ impl ChipDisplay for ConsoleDisplay {
     /// Clear the display by setting all pixel to 0
     fn clear(&mut self) {
         self.buffer = [0u8; 2048];
+        self.update();
     }
     /// Return the raw display buffer
     fn get_buffer(&mut self) -> &mut [u8; 2048] {
