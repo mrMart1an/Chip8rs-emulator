@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 pub mod display;
+pub mod keypad;
 
 use std::fmt::Debug;
 use std::fs::File;
@@ -8,9 +9,10 @@ use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use keypad::{ChipKey, ChipKeypad};
 use rand::{thread_rng, Rng};
 
-use display::{ChipDisplay, SCREEN_WIDTH};
+use display::{ChipDisplay, SCREEN_WIDTH, SCREEN_HEIGHT};
 
 pub const DEFAULT_FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -64,6 +66,7 @@ impl Default for ChipEmulatorConfig {
 }
 
 /// Chip-8 instruction struct
+#[derive(Clone, Copy)]
 struct ChipInstruction {
     pub raw: [u8; 2],
 
@@ -103,19 +106,18 @@ impl Debug for ChipInstruction {
 
 /// Store all the components of a Chip-8 emulator
 pub struct ChipEmulator<'a> {
-    /// Store the configuration struct
-    config: &'a ChipEmulatorConfig,
-
     /// 4KB program memory
     memory: [u8; 4096],
+    /// Video buffer to send to the screen implement on update
+    video_buffer: [u8; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
+    /// Program registers
+    registers: [u8; 16],
     /// The pointer to the current instruction
     program_counter: u16,
     /// Register used to point at location in memory
     index_pointer: u16,
     /// Program stack
     stack: Vec<u16>,
-    /// Program registers
-    registers: [u8; 16],
 
     /// Delay timer
     delay_timer: u8,
@@ -123,24 +125,36 @@ pub struct ChipEmulator<'a> {
     sound_timer: u8,
 
     /// The key currently being pressed
-    key: Option<u8>,
+    key: Option<ChipKey>,
 
     /// The display implementation
     display: &'a mut dyn ChipDisplay,
+    /// The keypad implementation
+    keypad: &'a dyn ChipKeypad,
+
     /// Clock used to keep the timer update at 60 Hz
     last_timer_update: Instant,
+    /// Cycle duration timer
+    cycle_timer: Instant,
+
+    /// Store the configuration struct
+    config: ChipEmulatorConfig,
 }
 
 // implement constructor and methods for the Chip-8 emulator
 impl<'a> ChipEmulator<'a> {
     /// Instantiate and initialize a new Chip-8 emulator
-    pub fn initialize(config: &'a ChipEmulatorConfig, display: &'a mut dyn ChipDisplay) -> Self {
+    pub fn initialize(
+        config: ChipEmulatorConfig, 
+        display: &'a mut dyn ChipDisplay,
+        keypad: &'a dyn ChipKeypad,
+    ) -> Self {
         let mut emulator = Self {
-            // Save the config
-            config,
 
             // Initialize memory to zeros
             memory: [0u8; 4096],
+            // Initialize video buffer
+            video_buffer: [0; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
             // Set the program counter to 0x200
             program_counter: 0x200u16,
             // Set index pointer to zero
@@ -149,6 +163,7 @@ impl<'a> ChipEmulator<'a> {
             stack: Vec::with_capacity(32),
             // Initialize registers to 0
             registers: [0u8; 16],
+
             // Initialize timer to 0
             delay_timer: 0u8,
             sound_timer: 0u8,
@@ -156,15 +171,22 @@ impl<'a> ChipEmulator<'a> {
             // Initialize input key to None
             key: None,
 
-            // Display implementation
+            // Display and keypad implementation
             display,
+            keypad,
+
             // Set last timer update to now
             last_timer_update: Instant::now(),
+            // Set the cycle timer to now
+            cycle_timer: Instant::now(),
+
+            // Save the config
+            config,
         };
 
         // Store the font in the program memory during initialization
-        emulator.memory[FONT_ADDRESS..FONT_ADDRESS + config.font.len()]
-            .copy_from_slice(&config.font);
+        emulator.memory[FONT_ADDRESS..FONT_ADDRESS + emulator.config.font.len()]
+            .copy_from_slice(&emulator.config.font);
 
         // Return the initialized emulator
         emulator
@@ -189,32 +211,38 @@ impl<'a> ChipEmulator<'a> {
         Ok(())
     }
 
-    /// Run the emulator loop
-    pub fn run(&mut self) {
-        // Calculate loop duration
+    /// Start the cycle timer
+    pub fn start_cycle(&mut self) {
+        self.cycle_timer = Instant::now();
+    }
+
+    /// Wait for the cycle end
+    pub fn finish_cycle(&self) {
+        // Loop duration
         let cycle_duration =
             Duration::from_secs_f64(1. / self.config.instruction_per_second as f64);
 
-        // Start loop
-        loop {
-            let start_time = Instant::now();
+        // Calculate how long to wait before starting the next cycle
+        // to maintain a constant loop speed
+        let time_taken = self.cycle_timer.elapsed();
 
-            // Decrements the timers
-            self.update_timer();
-
-            // Fetch, decode and execute the instruction
-            let instruction = self.fetch();
-            self.decode_execute(instruction);
-
-            // Calculate how long to wait before starting the next cycle
-            // to maintain a constant loop speed
-            let time_taken = start_time.elapsed();
-
-            if cycle_duration > time_taken {
-                let wait_time = cycle_duration - time_taken;
-                thread::sleep(wait_time);
-            }
+        if cycle_duration > time_taken {
+            let wait_time = cycle_duration - time_taken;
+            thread::sleep(wait_time);
         }
+    }
+
+    /// Run the emulator loop
+    pub fn step(&mut self) {
+        // Decrements the timers
+        self.update_timer();
+
+        // Read the pressed key from the key implementation
+        self.key = self.keypad.get_key();
+
+        // Fetch, decode and execute the instruction
+        let instruction = self.fetch();
+        self.decode_execute(instruction);
     }
 
     /// Decrements the delay and sound timer 60 times per seconds
@@ -254,7 +282,8 @@ impl<'a> ChipEmulator<'a> {
         match (instruction.op_code, instruction.parameter) {
             // Clear the screen
             (0x00, [0x00, 0x0E, 0x00]) => {
-                self.display.clear();
+                self.video_buffer = [0; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize];
+                self.display.update(&self.video_buffer);
             }
 
             // Jump instruction
@@ -399,7 +428,7 @@ impl<'a> ChipEmulator<'a> {
             // and save the value in register X
             (0x0F, [x, 0x00, 0x0A]) => {
                 if let Some(key) = self.key {
-                    self.registers[x as usize] = key;
+                    self.registers[x as usize] = key as u8;
                 } else {
                     self.program_counter -= 2;
                 }
@@ -407,7 +436,7 @@ impl<'a> ChipEmulator<'a> {
             // Skip the next instruction if the key in the register VX is being press
             (0x0E, [x, 0x09, 0x0E]) => {
                 if let Some(key) = self.key {
-                    if self.registers[x as usize] == key {
+                    if self.registers[x as usize] == key as u8 {
                         self.program_counter += 2;
                     }
                 }
@@ -415,7 +444,7 @@ impl<'a> ChipEmulator<'a> {
             // Skip the next instruction if the key in the register VX is not being press
             (0x0E, [x, 0x0A, 0x01]) => {
                 if let Some(key) = self.key {
-                    if self.registers[x as usize] != key {
+                    if self.registers[x as usize] != key as u8 {
                         self.program_counter += 2;
                     }
                 } else {
@@ -568,7 +597,6 @@ impl<'a> ChipEmulator<'a> {
 
         // Get sprite and display buffer slices
         let sprite = &self.memory[self.index_pointer as usize..self.index_pointer as usize + rows];
-        let buffer = self.display.get_buffer();
 
         // Set VF register to 0
         self.registers[0x0F] = 0;
@@ -583,14 +611,11 @@ impl<'a> ChipEmulator<'a> {
             // For every bit in one of the sprite byte update one pixel
             for bit_index in 0..8 {
                 // Calculate x and check for overflow
-                let x = sprite_x + bit_index;
-                if x >= 64 {
-                    break;
-                }
+                let x = (sprite_x + bit_index) % 64;
 
                 // Get sprite and screen pixel values
                 let sprite_pixel = (sprite_row << bit_index) & 0b10000000;
-                let pixel = &mut buffer[SCREEN_WIDTH as usize * y + x];
+                let pixel = &mut self.video_buffer[SCREEN_WIDTH as usize * y + x];
 
                 // If the sprite and screen pixel are both on
                 // turn off the screen pixel and set VF to 1
@@ -606,8 +631,8 @@ impl<'a> ChipEmulator<'a> {
             }
         }
 
-        // Update the display at the end
-        self.display.update();
+        // Present video buffer to the screen
+        self.display.update(&self.video_buffer);
     }
 
     /// Print the content of a specific memory range for debug purposes
