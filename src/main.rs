@@ -7,7 +7,7 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().expect("Couldn'r initialize event pump");
 
     // Initialize display and keypad
-    let mut display =  SdlDisplay::new(&sdl_context, [0xFF, 0xFF, 0xFF, 0xFF], [0, 0, 0, 0]).expect("Couldn't create display");
+    let display =  SdlDisplay::new(&sdl_context, [0xFF, 0xFF, 0xFF, 0xFF], [0, 0, 0, 0]).expect("Couldn't create display");
     let keypad = SdlKeypad::default();
 
     // Initialize the emulator
@@ -16,8 +16,8 @@ fn main() {
         ..Default::default()
     };
 
-    let mut emulator = ChipEmulator::initialize(config, &mut display, &keypad);
-    emulator.load_rom("./rom/snake.ch8").expect("ROM loading error");
+    let mut emulator = ChipEmulator::initialize(config, &display, &keypad);
+    emulator.load_rom("./rom/octojam1title.ch8").expect("ROM loading error");
 
     // Run emulator loop
     'running: loop {
@@ -29,9 +29,9 @@ fn main() {
                 match event {
                     Event::Quit { .. } => { break 'running; }
                     Event::Window { 
-                        win_event: WindowEvent::Resized(_, _), .. 
+                        win_event: WindowEvent::Resized(x, y), .. 
                     } => {
-                            //display.resize((x as u32, y as u32));
+                            display.resize((x as u32, y as u32));
                         }
             
                     _ => {}

@@ -128,7 +128,7 @@ pub struct ChipEmulator<'a> {
     key: Option<ChipKey>,
 
     /// The display implementation
-    display: &'a mut dyn ChipDisplay,
+    display: &'a dyn ChipDisplay,
     /// The keypad implementation
     keypad: &'a dyn ChipKeypad,
 
@@ -146,7 +146,7 @@ impl<'a> ChipEmulator<'a> {
     /// Instantiate and initialize a new Chip-8 emulator
     pub fn initialize(
         config: ChipEmulatorConfig, 
-        display: &'a mut dyn ChipDisplay,
+        display: &'a dyn ChipDisplay,
         keypad: &'a dyn ChipKeypad,
     ) -> Self {
         let mut emulator = Self {

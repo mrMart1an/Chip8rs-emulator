@@ -8,7 +8,7 @@ pub const SCREEN_HEIGHT: u32 = 32;
 /// 64 x 32 Display to present Chip-8 emulator frames
 pub trait ChipDisplay {
     /// Update by drawing the buffer to the screen
-    fn update(&mut self, video_buffer: &[u8; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize]);
+    fn update(&self, video_buffer: &[u8; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize]);
 }
 
 /*
@@ -23,7 +23,7 @@ pub struct ConsoleDisplay;
 // Implement Chip Display for console display
 impl ChipDisplay for ConsoleDisplay {
     /// Update by drawing the buffer to the screen
-    fn update(&mut self, video_buffer: &[u8; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize]) {
+    fn update(&self, video_buffer: &[u8; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize]) {
         const PIXEL_ON: &str = "▓▓";
         const PIXEL_OFF: &str = "  ";
 
@@ -53,10 +53,10 @@ impl ChipDisplay for ConsoleDisplay {
 */
 
 pub struct SdlDisplay {
-    canvas: Canvas<Window>,
+    canvas: RefCell<Canvas<Window>>,
 
     texture_creator: TextureCreator<WindowContext>,
-    texture_buffer: [u8; (SCREEN_HEIGHT * SCREEN_WIDTH) as usize * 4],
+    texture_buffer: RefCell<[u8; (SCREEN_HEIGHT * SCREEN_WIDTH) as usize * 4]>,
 
     pub output_rect: RefCell<Rect>,
 
@@ -72,19 +72,20 @@ impl SdlDisplay {
         let sdl_video = contex.video()?;
         let window = sdl_video.window("Chip-8 emulator", SCREEN_WIDTH * 200, SCREEN_HEIGHT * 200)
         .resizable()
-        .opengl()
         .build()
         .map_err(|e| e.to_string())?;
 
         // Create texture and canvas
         let canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+        let canvas_size = canvas.output_size().unwrap();
+
         let texture_creator = canvas.texture_creator();
 
-        let texture_buffer = [0xFF; (SCREEN_HEIGHT * SCREEN_WIDTH) as usize * 4];
+        let texture_buffer = RefCell::new([0xFF; (SCREEN_HEIGHT * SCREEN_WIDTH) as usize * 4]);
 
         // Create and output the display object
-        let mut display = Self {
-            canvas,
+        let display = Self {
+            canvas: RefCell::new(canvas),
 
             texture_creator,
             texture_buffer,
@@ -94,8 +95,8 @@ impl SdlDisplay {
         };
 
         // Generate output rect
-        display.resize(display.canvas.output_size().unwrap());
-
+        display.resize(canvas_size);
+        
         // present the clear buffer to the window
         display.present_buffer();
 
@@ -111,14 +112,14 @@ impl SdlDisplay {
         let mut height = (width as f32 / aspect_ratio) as u32;
 
         let mut x_pos = 0;
-        let mut y_pos = ((window_size.1 / 2) - (height / 2)) as i32;
+        let mut y_pos = (window_size.1 / 2) as i32 - (height / 2) as i32;
 
         // If height is greater that window height recalculate the dimensions
         if window_size.1 <= height {
             height = window_size.1;    
             width = (height as f32 * aspect_ratio) as u32;
 
-            x_pos = ((window_size.0 / 2) - (width / 2)) as i32;
+            x_pos = (window_size.0 / 2) as i32 - (width / 2) as i32;
             y_pos = 0;
         }
 
@@ -126,26 +127,32 @@ impl SdlDisplay {
 
         // Set the output rect 
         *self.output_rect.borrow_mut() = rect;
+
+        // Present the texture buffer
+        self.present_buffer();
     }
 
     /// Present the texture_buffer to the screen
-    fn present_buffer(&mut self) {
+    fn present_buffer(&self) {
         // Create the texture and write the buffer on it 
+        let mut canvas = self.canvas.borrow_mut();
+
         let mut texture = self.texture_creator.create_texture_static(PixelFormatEnum::ARGB8888, SCREEN_WIDTH, SCREEN_HEIGHT).unwrap();
-        texture.update(None, &self.texture_buffer, SCREEN_WIDTH as usize * 4).unwrap();
-        self.canvas.copy(&texture, None, *self.output_rect.borrow()).unwrap();
+        texture.update(None, self.texture_buffer.borrow().as_ref(), SCREEN_WIDTH as usize * 4).unwrap();
+        canvas.copy(&texture, None, *self.output_rect.borrow()).unwrap();
 
         // Present the texture on the screen 
-        self.canvas.present();
+        canvas.present();
     }
 }
 
 impl ChipDisplay for SdlDisplay {
-    fn update(&mut self, video_buffer: &[u8; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize]) {
+    fn update(&self, video_buffer: &[u8; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize]) {
         // Set the pixel color in the texture buffer to the on color
         // if the video buffer pixel is active
+        //let mut buffer = self.texture_buffer.borrow_mut();
         for (i, pixel) in video_buffer.iter().enumerate() {
-            self.texture_buffer[i*4..i*4 + 4].copy_from_slice(&self.pixel_color[*pixel as usize]);
+            self.texture_buffer.borrow_mut()[i*4..i*4 + 4].copy_from_slice(&self.pixel_color[*pixel as usize]);
         }
 
         // Present the texture buffer
