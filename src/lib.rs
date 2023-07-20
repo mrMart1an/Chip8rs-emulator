@@ -1,37 +1,20 @@
 #![allow(dead_code)]
 pub mod display;
 pub mod keypad;
+pub mod sound;
+pub mod fonts;
 
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::{Read, Result};
 use std::path::Path;
-use std::thread;
 use std::time::{Duration, Instant};
 
+use fonts::DEFAULT_FONT;
 use keypad::ChipKey;
 use rand::{thread_rng, Rng};
 
 use display::{SCREEN_WIDTH, SCREEN_HEIGHT};
-
-pub const DEFAULT_FONT: [u8; 80] = [
-    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
-    0x20, 0x60, 0x20, 0x20, 0x70, // 1
-    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
-    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
-    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
-    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
-    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
-    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
-    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
-    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
-    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
-    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
-];
 
 const FONT_ADDRESS: usize = 0x050;
 
@@ -130,8 +113,6 @@ pub struct ChipEmulator {
 
     /// Clock used to keep the timer update at 60 Hz
     last_timer_update: Instant,
-    /// Cycle duration timer
-    cycle_timer: Instant,
 
     /// Store the configuration struct
     config: ChipEmulatorConfig,
@@ -167,8 +148,6 @@ impl ChipEmulator {
 
             // Set last timer update to now
             last_timer_update: Instant::now(),
-            // Set the cycle timer to now
-            cycle_timer: Instant::now(),
 
             // Save the config
             config,
@@ -220,21 +199,8 @@ impl ChipEmulator {
     }
 
     /// Wait for the right amount of time to start the next clock cycle
-    pub fn start_cycle(&mut self) {
-        // Loop duration
-        let cycle_duration =
-            Duration::from_secs_f64(1. / self.config.instruction_per_second as f64);
-
-        // Calculate how long to wait before starting the next cycle
-        // to maintain a constant loop speed
-        let time_taken = self.cycle_timer.elapsed();
-
-        if cycle_duration > time_taken {
-            let wait_time = cycle_duration - time_taken;
-            thread::sleep(wait_time);
-        }
-
-        self.cycle_timer = Instant::now();
+    pub fn get_cycle_duration(&self) -> Duration {
+        Duration::from_secs_f64(1. / self.config.instruction_per_second as f64)
     }
 
     /// Run the emulator loop
