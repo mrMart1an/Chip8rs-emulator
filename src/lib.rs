@@ -9,10 +9,10 @@ use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use keypad::{ChipKey, ChipKeypad};
+use keypad::ChipKey;
 use rand::{thread_rng, Rng};
 
-use display::{ChipDisplay, SCREEN_WIDTH, SCREEN_HEIGHT};
+use display::{SCREEN_WIDTH, SCREEN_HEIGHT};
 
 pub const DEFAULT_FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -105,11 +105,12 @@ impl Debug for ChipInstruction {
 }
 
 /// Store all the components of a Chip-8 emulator
-pub struct ChipEmulator<'a> {
+pub struct ChipEmulator {
     /// 4KB program memory
     memory: [u8; 4096],
     /// Video buffer to send to the screen implement on update
     video_buffer: [u8; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
+    buffer_updated: bool,
     /// Program registers
     registers: [u8; 16],
     /// The pointer to the current instruction
@@ -127,11 +128,6 @@ pub struct ChipEmulator<'a> {
     /// The key currently being pressed
     key: Option<ChipKey>,
 
-    /// The display implementation
-    display: &'a dyn ChipDisplay,
-    /// The keypad implementation
-    keypad: &'a dyn ChipKeypad,
-
     /// Clock used to keep the timer update at 60 Hz
     last_timer_update: Instant,
     /// Cycle duration timer
@@ -142,19 +138,17 @@ pub struct ChipEmulator<'a> {
 }
 
 // implement constructor and methods for the Chip-8 emulator
-impl<'a> ChipEmulator<'a> {
+impl ChipEmulator {
     /// Instantiate and initialize a new Chip-8 emulator
     pub fn initialize(
         config: ChipEmulatorConfig, 
-        display: &'a dyn ChipDisplay,
-        keypad: &'a dyn ChipKeypad,
     ) -> Self {
         let mut emulator = Self {
-
             // Initialize memory to zeros
             memory: [0u8; 4096],
             // Initialize video buffer
             video_buffer: [0; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
+            buffer_updated: true,
             // Set the program counter to 0x200
             program_counter: 0x200u16,
             // Set index pointer to zero
@@ -171,10 +165,6 @@ impl<'a> ChipEmulator<'a> {
             // Initialize input key to None
             key: None,
 
-            // Display and keypad implementation
-            display,
-            keypad,
-
             // Set last timer update to now
             last_timer_update: Instant::now(),
             // Set the cycle timer to now
@@ -190,6 +180,24 @@ impl<'a> ChipEmulator<'a> {
 
         // Return the initialized emulator
         emulator
+    }
+
+    /// Update the key pressed value
+    pub fn update_key(&mut self, key: Option<ChipKey>) {
+        self.key = key;
+    }
+
+    /// Return a slice containing the video buffer and a boolean
+    /// variable set to true if the buffer was updated since
+    /// the last call to this function
+    pub fn get_video_buffer(&mut self) -> (&[u8], bool) {
+        let output = (
+            &self.video_buffer[0..self.video_buffer.len()],
+            self.buffer_updated,
+        );
+        self.buffer_updated = false;
+
+        output
     }
 
     /// Load a chip-8 rom from a file
@@ -211,13 +219,8 @@ impl<'a> ChipEmulator<'a> {
         Ok(())
     }
 
-    /// Start the cycle timer
+    /// Wait for the right amount of time to start the next clock cycle
     pub fn start_cycle(&mut self) {
-        self.cycle_timer = Instant::now();
-    }
-
-    /// Wait for the cycle end
-    pub fn finish_cycle(&self) {
         // Loop duration
         let cycle_duration =
             Duration::from_secs_f64(1. / self.config.instruction_per_second as f64);
@@ -230,15 +233,14 @@ impl<'a> ChipEmulator<'a> {
             let wait_time = cycle_duration - time_taken;
             thread::sleep(wait_time);
         }
+
+        self.cycle_timer = Instant::now();
     }
 
     /// Run the emulator loop
     pub fn step(&mut self) {
         // Decrements the timers
         self.update_timer();
-
-        // Read the pressed key from the key implementation
-        self.key = self.keypad.get_key();
 
         // Fetch, decode and execute the instruction
         let instruction = self.fetch();
@@ -283,7 +285,7 @@ impl<'a> ChipEmulator<'a> {
             // Clear the screen
             (0x00, [0x00, 0x0E, 0x00]) => {
                 self.video_buffer = [0; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize];
-                self.display.update(&self.video_buffer);
+                self.buffer_updated = true;
             }
 
             // Jump instruction
@@ -631,10 +633,13 @@ impl<'a> ChipEmulator<'a> {
             }
         }
 
-        // Present video buffer to the screen
-        self.display.update(&self.video_buffer);
+        // Change the value of buffer updated
+        self.buffer_updated = true;
     }
+}
 
+// Implement debug methods
+impl ChipEmulator {
     /// Print the content of a specific memory range for debug purposes
     pub fn print_memory(&self, from: usize, to: usize, width: u32) {
         for (i, value) in self.memory[from..=to].iter().enumerate() {

@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
@@ -24,12 +22,6 @@ pub enum ChipKey {
     KeyF,
 }
 
-/// A keypad trait for a Chip-8 emulator
-pub trait ChipKeypad {
-    /// Get the current keypad pressed key
-    fn get_key(&self) -> Option<ChipKey>;
-}
-
 /*
 *
 *   Sdl event based keypad Implementation
@@ -38,165 +30,165 @@ pub trait ChipKeypad {
 
 #[derive(Default)]
 pub struct SdlKeypad {
-    key: RefCell<Option<ChipKey>> ,
-}
-
-/// Implement chip keypad trait for sdl keypad
-impl ChipKeypad for SdlKeypad {
-    fn get_key(&self) -> Option<ChipKey> {
-        self.key.borrow().clone()
-    }
+    key: Option<ChipKey> ,
 }
 
 /// Implement sdl keypad methods
 impl SdlKeypad {
-    pub fn process_sdl_event(&self, event: &Event) -> bool {
+    /// Return the current key pressed variable
+    pub fn get_key(&self) -> Option<ChipKey> {
+        self.key    
+    }
+
+    /// Process an sdl key event to update the key pressed variable
+    /// Return true if the event was processed
+    pub fn process_sdl_event(&mut self, event: &Event) -> bool {
         match event {
             // Row 1
             Event::KeyDown { keycode: Some(Keycode::Num1), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key1);
+                self.key = Some(ChipKey::Key1);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::Num1), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::Num2), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key2);
+                self.key = Some(ChipKey::Key2);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::Num2), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::Num3), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key3);
+                self.key = Some(ChipKey::Key3);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::Num3), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::Num4), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::KeyC);
+                self.key = Some(ChipKey::KeyC);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::Num4), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             // Row 2
             Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key4);
+                self.key = Some(ChipKey::Key4);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::Q), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::W), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key5);
+                self.key = Some(ChipKey::Key5);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::W), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::E), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key6);
+                self.key = Some(ChipKey::Key6);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::E), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::R), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::KeyD);
+                self.key = Some(ChipKey::KeyD);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::R), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             // Row 3
             Event::KeyDown { keycode: Some(Keycode::A), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key7);
+                self.key = Some(ChipKey::Key7);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::A), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::S), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key8);
+                self.key = Some(ChipKey::Key8);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::S), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::D), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key9);
+                self.key = Some(ChipKey::Key9);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::D), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::F), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::KeyE);
+                self.key = Some(ChipKey::KeyE);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::F), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             // Row 4
             Event::KeyDown { keycode: Some(Keycode::Z), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::KeyA);
+                self.key = Some(ChipKey::KeyA);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::Z), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::X), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::Key0);
+                self.key = Some(ChipKey::Key0);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::X), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::C), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::KeyB);
+                self.key = Some(ChipKey::KeyB);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::C), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
 
             Event::KeyDown { keycode: Some(Keycode::V), .. } => {
-                *self.key.borrow_mut() = Some(ChipKey::KeyF);
+                self.key = Some(ChipKey::KeyF);
                 true
             }
             Event::KeyUp { keycode: Some(Keycode::V), .. } => {
-                *self.key.borrow_mut() = None;
+                self.key = None;
                 true
             }
             _ => { false }
