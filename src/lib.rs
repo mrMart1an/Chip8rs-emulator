@@ -588,20 +588,15 @@ impl ChipEmulator {
                 let x = (sprite_x + bit_index) % 64;
 
                 // Get sprite and screen pixel values
-                let sprite_pixel = (sprite_row << bit_index) & 0b10000000;
+                let sprite_pixel = (sprite_row >> (7 - bit_index)) & 0b00000001;
                 let pixel = &mut self.video_buffer[SCREEN_WIDTH as usize * y + x];
 
                 // If the sprite and screen pixel are both on
                 // turn off the screen pixel and set VF to 1
                 // If the sprite pixel is on and the screen pixel is off
                 // turn on the screen pixel
-                if sprite_pixel != 0 && *pixel != 0 {
-                    // Set VF register to 0
-                    self.registers[0x0F] = 1;
-                    *pixel = 0;
-                } else if sprite_pixel != 0 && *pixel == 0 {
-                    *pixel = 1;
-                }
+                self.registers[0x0F] = sprite_pixel & *pixel;
+                *pixel = sprite_pixel ^ *pixel;
             }
         }
 

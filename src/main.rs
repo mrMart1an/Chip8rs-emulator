@@ -26,16 +26,12 @@ fn main() {
     };
 
     let mut emulator = ChipEmulator::initialize(config);
-    //emulator.load_rom("./rom/RPS.ch8").expect("ROM loading error");
-    //emulator.load_rom("./rom/octojam6title.ch8").expect("ROM loading error");
+    emulator.load_rom("./rom/RPS.ch8").expect("ROM loading error");
+    //emulator.load_rom("./rom/octojam1title.ch8").expect("ROM loading error");
     //emulator.load_rom("./rom/glitchGhost.ch8").expect("ROM loading error");
     //emulator.load_rom("./rom/1dcell.ch8").expect("ROM loading error");
     //emulator.load_rom("./rom/snake.ch8").expect("ROM loading error");
-    emulator.load_rom("./rom/test_audio.ch8").expect("ROM loading error");
-
-
-    
-
+    //emulator.load_rom("./rom/test_audio.ch8").expect("ROM loading error");
 
     // Run emulator loop
     let mut timer = Instant::now();
