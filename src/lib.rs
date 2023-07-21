@@ -161,6 +161,12 @@ impl ChipEmulator {
         emulator
     }
 
+    /// Get the current bell status based on the sound timer
+    /// Return true if the bell is active
+    pub fn get_bell_status(&self) -> bool {
+        self.sound_timer != 0
+    }
+
     /// Update the key pressed value
     pub fn update_key(&mut self, key: Option<ChipKey>) {
         self.key = key;
