@@ -8,8 +8,8 @@ use rodio::source::{SineWave, Source};
 */
 
 pub struct RodioSound {
-    stream_handle: OutputStreamHandle,
-    stream: OutputStream,
+    _stream_handle: OutputStreamHandle,
+    _stream: OutputStream,
 
     /// Control the sine wave source stream
     sink: Sink,
@@ -20,8 +20,8 @@ impl RodioSound {
     /// Create a new sound system given frequency and volume of the bell
     pub fn new(frequency: f32, volume: f32) -> Self {
         // Create the audio handler and sink
-        let (stream, stream_handle) = OutputStream::try_default().unwrap();
-        let sink = Sink::try_new(&stream_handle).unwrap();
+        let (_stream, _stream_handle) = OutputStream::try_default().unwrap();
+        let sink = Sink::try_new(&_stream_handle).unwrap();
         
         // Create a sine wave source and give it to a sink
         let source = SineWave::new(frequency).amplify(volume);
@@ -30,8 +30,8 @@ impl RodioSound {
 
         // Create the sound system object
         Self { 
-            stream_handle,
-            stream,
+            _stream_handle,
+            _stream,
 
             sink,
         }

@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 pub mod display;
 pub mod keypad;
 pub mod sound;
@@ -595,7 +594,7 @@ impl ChipEmulator {
                 // turn off the screen pixel and set VF to 1
                 // If the sprite pixel is on and the screen pixel is off
                 // turn on the screen pixel
-                self.registers[0x0F] = sprite_pixel & *pixel;
+                self.registers[0x0F] |= sprite_pixel & *pixel;
                 *pixel = sprite_pixel ^ *pixel;
             }
         }

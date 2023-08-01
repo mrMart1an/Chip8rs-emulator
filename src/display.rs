@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use sdl2::{Sdl, video::{Window, WindowContext}, render::{Canvas, TextureCreator}, pixels::PixelFormatEnum, rect::Rect};
 
 pub const SCREEN_WIDTH: u32 = 64;
